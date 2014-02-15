@@ -705,7 +705,7 @@ function email_relationship_child_resolved_closed( $p_bug_id, $p_message_id ) {
  * @param array $p_headers
  * @return int
  */
-function email_store( $p_recipient, $p_subject, $p_message, $p_headers = null ) {
+function email_store( $p_recipient, $p_subject, $p_message, $p_headers = null, $p_project_id = null ) {
 	global $g_email_stored;
 
 	$t_recipient = trim( $p_recipient );
@@ -727,6 +727,10 @@ function email_store( $p_recipient, $p_subject, $p_message, $p_headers = null ) 
 	$t_email_data->metadata = array();
 	$t_email_data->metadata['headers'] = $p_headers === null ? array() : $p_headers;
 	$t_email_data->metadata['priority'] = config_get( 'mail_priority' );
+
+	if ($p_project_id != null) {
+		$t_email_data->metadata['project_id'] = $p_project_id;
+	}
 
 	# Urgent = 1, Not Urgent = 5, Disable = 0
 	$t_email_data->metadata['charset'] = 'utf-8';
@@ -804,7 +808,7 @@ function email_send_all($p_delete_on_failure = false) {
 function email_send( $p_email_data ) {
 	global $g_phpMailer;
 
-	$t_email_data = $p_email_data;
+	$t_email_data = event_signal('EVENT_EMAIL_SEND', array( $p_email_data ));
 
 	$t_recipient = trim( $t_email_data->email );
 	$t_subject = string_email( trim( $t_email_data->subject ) );
@@ -872,7 +876,13 @@ function email_send( $p_email_data ) {
 	$mail->Priority = $t_email_data->metadata['priority'];  # Urgent = 1, Not Urgent = 5, Disable = 0
 	$mail->CharSet = $t_email_data->metadata['charset'];
 	$mail->Host = config_get( 'smtp_host' );
-	$mail->From = config_get( 'from_email' );
+
+	if( isset( $t_email_data->metadata['sender'] ) ) {
+		$mail->From = $t_email_data->metadata['sender'];
+	} else {
+		$mail->From = config_get( 'from_email' );
+	}
+
 	$mail->Sender = config_get( 'return_path_email' );
 	$mail->FromName = config_get( 'from_name' );
 	$mail->AddCustomHeader('Auto-Submitted:auto-generated');
@@ -1046,7 +1056,7 @@ function email_bug_reminder( $p_recipients, $p_bug_id, $p_message ) {
 		$t_header = "\n" . lang_get( 'on_date' ) . " $t_date, $t_sender $t_sender_email " . lang_get( 'sent_you_this_reminder_about' ) . ": \n\n";
 		$t_contents = $t_header . string_get_bug_view_url_with_fqdn( $p_bug_id, $t_recipient ) . " \n\n$p_message";
 
-		$t_id = email_store( $t_email, $t_subject, $t_contents );
+		$t_id = email_store( $t_email, $t_subject, $t_contents, null, $t_project_id );
 		if( $t_id !== null ) {
 			$result[] = $t_recipient;
 		}
@@ -1107,7 +1117,7 @@ function email_bug_info_to_one_user( $p_visible_bug_data, $p_message_id, $p_proj
 	}
 
 	# send mail
-	email_store( $t_user_email, $t_subject, $t_message, $t_mail_headers );
+	email_store( $t_user_email, $t_subject, $t_message, $t_mail_headers, $p_project_id );
 
 	return;
 }

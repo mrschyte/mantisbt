@@ -129,4 +129,7 @@ event_declare_many( array(
 
 	# Logging (tracing) events
 	'EVENT_LOG' => EVENT_TYPE_EXECUTE,
+
+	# email send / store events
+	'EVENT_EMAIL_SEND' => EVENT_TYPE_CHAIN,
 ) );
